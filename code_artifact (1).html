@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <!-- 鎖定螢幕縮放，提供 App 般的體驗 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>加法合起來！平板專用版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 隱藏捲軸，強制滿版，並停用預設的觸控縮放/平移手勢 */
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #F3F4F6; 
+            font-family: 'Inter', 'Noto Sans TC', sans-serif;
+            touch-action: none; 
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        
+        /* 自適應積木大小，最大 60px，適應平板寬度 */
+        .block-item {
+            width: clamp(40px, 8vw, 60px);
+            height: clamp(40px, 8vw, 60px);
+            position: relative;
+            border-radius: 8px;
+            box-shadow: inset -2px -2px 6px rgba(0,0,0,0.2), 2px 2px 6px rgba(0,0,0,0.3);
+            z-index: 50;
+        }
+
+        /* 積木上方的凸起卡榫 */
+        .block-item::before {
+            content: '';
+            position: absolute;
+            top: -20%;
+            left: 20%;
+            width: 60%;
+            height: 20%;
+            border-radius: 4px 4px 0 0;
+            box-shadow: inset -2px 0px 4px rgba(0,0,0,0.1);
+        }
+
+        /* 黃色積木 (左側) */
+        .block-yellow {
+            background-color: #FFEB3B;
+            border: 2px solid #FBC02D;
+        }
+        .block-yellow::before {
+            background-color: #FFEB3B;
+            border: 2px solid #FBC02D;
+            border-bottom: none;
+        }
+
+        /* 藍色積木 (右側) */
+        .block-blue {
+            background-color: #00BCD4;
+            border: 2px solid #0097A7;
+        }
+        .block-blue::before {
+            background-color: #00BCD4;
+            border: 2px solid #0097A7;
+            border-bottom: none;
+        }
+
+        .zone-shadow {
+            box-shadow: inset 0 4px 6px -1px rgba(0, 0, 0, 0.1), inset 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col">
+
+    <!-- 頂部區塊：標題與重新開始按鈕 (約 10vh) -->
+    <div class="h-[10vh] flex items-center justify-between px-4 sm:px-6 bg-white shadow-sm z-10">
+        <!-- 老師設定按鈕 -->
+        <button onclick="openSettings()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-3 sm:px-4 rounded-lg shadow-sm active:scale-95 transition-transform text-base sm:text-xl border-2 border-gray-300 flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+            <span class="hidden sm:inline">老師設定</span>
+        </button>
+
+        <h1 class="text-xl sm:text-3xl font-extrabold text-gray-700 tracking-wider text-center flex-1">
+            看一看，合起來有多少？
+        </h1>
+        
+        <!-- 重新開始按鈕 -->
+        <button onclick="initGame()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 px-3 sm:px-4 rounded-lg shadow-sm active:scale-95 transition-transform text-base sm:text-xl border-2 border-gray-300">
+            ↻ <span class="hidden sm:inline">重新開始</span>
+        </button>
+    </div>
+
+    <!-- 上方操作區塊：左綠、右藍 (約 40vh) -->
+    <div class="h-[40vh] flex flex-row gap-4 px-4 pt-4 pb-2">
+        <!-- 綠色區塊 (放黃色積木) -->
+        <div id="green-zone" class="flex-1 bg-green-100 border-4 sm:border-8 border-green-500 rounded-2xl sm:rounded-3xl p-4 flex flex-wrap content-start gap-3 sm:gap-4 zone-shadow pt-8">
+        </div>
+        
+        <!-- 藍色區塊 (放藍色積木) -->
+        <div id="blue-zone" class="flex-1 bg-blue-100 border-4 sm:border-8 border-blue-500 rounded-2xl sm:rounded-3xl p-4 flex flex-wrap content-start gap-3 sm:gap-4 zone-shadow pt-8">
+        </div>
+    </div>
+
+    <!-- 中間按鈕區塊 (約 15vh) -->
+    <div class="h-[15vh] flex justify-center items-center relative z-20">
+        <button id="action-btn" class="bg-indigo-600 text-white text-4xl sm:text-5xl font-black py-4 sm:py-6 px-12 sm:px-16 rounded-full shadow-2xl transition-all transform hover:scale-105 active:scale-95 border-4 border-indigo-800">
+            合起來！
+        </button>
+    </div>
+
+    <!-- 下方總和區塊：黃色 (約 35vh) -->
+    <div class="h-[35vh] px-4 pb-4 pt-2">
+        <div id="yellow-zone" class="w-full h-full bg-yellow-100 border-4 sm:border-8 border-yellow-500 rounded-2xl sm:rounded-3xl p-4 flex flex-wrap content-start gap-3 sm:gap-4 zone-shadow relative pt-8">
+            
+            <!-- 結果文字顯示 -->
+            <div id="result-text" class="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-500 pointer-events-none z-10">
+                <div class="bg-white/95 backdrop-blur-md px-8 py-4 rounded-2xl shadow-xl border-4 border-yellow-400">
+                    <span class="text-4xl sm:text-6xl font-bold text-gray-800">
+                        全部有 <span id="total-count" class="text-red-600 text-5xl sm:text-7xl mx-2"></span> 個
+                    </span>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+
+    <!-- 老師設定 Modal -->
+    <div id="settings-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex justify-center items-center backdrop-blur-sm">
+        <div class="bg-white p-6 sm:p-8 rounded-3xl shadow-2xl w-11/12 max-w-md border-4 border-gray-300 transform transition-all">
+            <h2 class="text-2xl sm:text-3xl font-black text-gray-800 mb-6 text-center border-b-2 pb-4">最大總數範圍</h2>
+            <div class="space-y-4">
+                <div class="flex items-center justify-between bg-purple-50 p-4 rounded-xl border-2 border-purple-200">
+                    <label class="text-xl sm:text-2xl font-bold text-purple-800">總數不超過</label>
+                    <input type="number" id="input-max-sum" min="2" max="30" class="w-24 sm:w-28 text-2xl sm:text-3xl text-center border-2 border-purple-400 rounded-lg p-2 focus:outline-none focus:ring-4 focus:ring-purple-300" value="10">
+                </div>
+                <p class="text-gray-500 text-sm sm:text-base text-center leading-relaxed">
+                    每次出題，左邊與右邊都會至少有 1 個積木，且合併後的總數不會超過這個設定值。
+                </p>
+            </div>
+            <div class="mt-8 flex gap-4">
+                <button onclick="closeSettings()" class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xl sm:text-2xl font-bold py-3 rounded-xl transition-all">取消</button>
+                <button onclick="applySettings()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xl sm:text-2xl font-bold py-3 rounded-xl shadow-lg transition-all">套用</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isAnimating = false;
+        let globalMaxSum = 10; // 預設最大總數為 10
+
+        function initGame() {
+            if (isAnimating) return;
+            
+            const greenZone = document.getElementById('green-zone');
+            const blueZone = document.getElementById('blue-zone');
+            const yellowZone = document.getElementById('yellow-zone');
+            const btn = document.getElementById('action-btn');
+            const resultText = document.getElementById('result-text');
+
+            // 1. 清空區塊（保留浮動的結果字卡）
+            greenZone.innerHTML = '';
+            blueZone.innerHTML = '';
+            
+            // 移除黃色區塊內的積木，但保留結果文字div
+            Array.from(yellowZone.children).forEach(child => {
+                if (child.id !== 'result-text') {
+                    yellowZone.removeChild(child);
+                }
+            });
+
+            resultText.classList.replace('opacity-100', 'opacity-0');
+            
+            // 2. 重設按鈕
+            btn.textContent = '合起來！';
+            btn.onclick = triggerMergeAnimation;
+            btn.className = "bg-indigo-600 text-white text-4xl sm:text-5xl font-black py-4 sm:py-6 px-12 sm:px-16 rounded-full shadow-2xl transition-all transform hover:scale-105 active:scale-95 border-4 border-indigo-800";
+
+            // 3. 根據 globalMaxSum 產生符合條件的積木數量
+            // 設定目標總數，範圍介於 2 到 globalMaxSum 之間
+            const targetSum = Math.floor(Math.random() * (globalMaxSum - 1)) + 2; 
+            
+            // 左邊積木數，範圍介於 1 到 (targetSum - 1) 之間
+            const greenCount = Math.floor(Math.random() * (targetSum - 1)) + 1;
+            
+            // 右邊積木數等於剩餘數量
+            const blueCount = targetSum - greenCount;
+
+            createBlocks(greenZone, greenCount, 'block-yellow');
+            createBlocks(blueZone, blueCount, 'block-blue');
+        }
+
+        function createBlocks(container, count, colorClass) {
+            for(let i = 0; i < count; i++) {
+                const block = document.createElement('div');
+                block.className = `block-item ${colorClass} mt-2 sm:mt-4 mx-1 sm:mx-2`;
+                container.appendChild(block);
+            }
+        }
+
+        function triggerMergeAnimation() {
+            if (isAnimating) return;
+            isAnimating = true;
+
+            // 語音播放「合起來」
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance('合起來');
+                utterance.lang = 'zh-TW';
+                utterance.rate = 0.85; // 放慢語速讓發音更清晰
+                window.speechSynthesis.speak(utterance);
+            }
+
+            const items = document.querySelectorAll('.block-item');
+            const yellowZone = document.getElementById('yellow-zone');
+            const btn = document.getElementById('action-btn');
+            const resultText = document.getElementById('result-text');
+            const totalCount = document.getElementById('total-count');
+
+            // 紀錄初始位置
+            const firstPositions = Array.from(items).map(c => c.getBoundingClientRect());
+
+            // 搬移元素至目標區域
+            items.forEach(c => yellowZone.appendChild(c));
+
+            // 紀錄新位置
+            const lastPositions = Array.from(items).map(c => c.getBoundingClientRect());
+
+            // 反轉位置 (瞬間移回原位)
+            items.forEach((c, i) => {
+                const dx = firstPositions[i].left - lastPositions[i].left;
+                const dy = firstPositions[i].top - lastPositions[i].top;
+                c.style.transform = `translate(${dx}px, ${dy}px)`;
+                c.style.transition = 'none';
+            });
+
+            // 觸發重繪
+            document.body.offsetHeight;
+
+            // 播放滑動動畫
+            items.forEach(c => {
+                c.style.transition = 'transform 1.0s cubic-bezier(0.25, 1, 0.5, 1)';
+                c.style.transform = 'translate(0, 0)';
+            });
+
+            // 動畫結束後更新 UI
+            setTimeout(() => {
+                items.forEach(c => {
+                    c.style.transition = 'none';
+                    c.style.transform = 'none';
+                });
+
+                totalCount.textContent = items.length;
+                resultText.classList.replace('opacity-0', 'opacity-100');
+
+                btn.textContent = '下一題 ➔';
+                btn.className = "bg-green-600 text-white text-4xl sm:text-5xl font-black py-4 sm:py-6 px-12 sm:px-16 rounded-full shadow-2xl transition-all transform hover:scale-105 active:scale-95 border-4 border-green-800";
+                btn.onclick = initGame;
+                
+                isAnimating = false;
+            }, 1000);
+        }
+
+        // 老師設定 Modal 控制邏輯
+        function openSettings() {
+            if (isAnimating) return;
+            document.getElementById('settings-modal').classList.remove('hidden');
+            document.getElementById('input-max-sum').value = globalMaxSum;
+        }
+
+        function closeSettings() {
+            document.getElementById('settings-modal').classList.add('hidden');
+        }
+
+        function applySettings() {
+            const maxVal = parseInt(document.getElementById('input-max-sum').value, 10);
+            
+            // 驗證輸入，確保最大總數至少為 2 (因為左右至少各要有 1 個)
+            if (isNaN(maxVal) || maxVal < 2) {
+                globalMaxSum = 2;
+            } else {
+                globalMaxSum = maxVal;
+            }
+
+            closeSettings();
+            initGame();
+        }
+
+        // 載入完成即啟動
+        window.onload = initGame;
+    </script>
+</body>
+</html>
